@@ -45,7 +45,7 @@ jobs:
             -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 30 \
             -dname 'CN=Android Debug,O=Android,C=US' \
             -storepass android -keypass android >/dev/null 2>&1
-          if gradle --no-daemon --stacktrace --max-workers=2 -Dorg.gradle.jvmargs=-Xmx3g :app:testDebugUnitTest > "$RUNNER_TEMP/unit-tests.log" 2>&1; then
+          if gradle --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx3g :app:testDebugUnitTest > "$RUNNER_TEMP/unit-tests.log" 2>&1; then
             echo 'Gradle unit-test task completed.'
           else
             status=$?
@@ -54,7 +54,7 @@ jobs:
           import os
           from pathlib import Path
           lines = (Path(os.environ['RUNNER_TEMP']) / 'unit-tests.log').read_text(errors='replace').splitlines()
-          excerpt = '\n'.join(lines[-75:])
+          excerpt = '\n'.join(lines[-55:])[-3500:]
           excerpt = excerpt.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
           print('::error title=Last unit-test log lines::' + excerpt)
           PY
