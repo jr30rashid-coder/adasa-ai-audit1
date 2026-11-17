@@ -1,0 +1,24 @@
+Drones 3D release candidate APK - verification
+
+Application source: https://github.com/jr30rashid-coder/-
+Source commit: 228ad273c4974c2257d77de1fb20078182ce52ed
+Application ID: com.aistudio.drones3d.kqvmrx
+Version: 1.0.0-rc1 (versionCode 1)
+Minimum Android: 7.0 (API 24)
+Target Android API: 36
+
+APK: Drones3D-v1.0.0-rc1-release.apk
+APK SHA-256: a6e0868f0a085bd3b2070357456fd2fd8001f3daf127f450433c0e48ae5bc322
+Signing certificate SHA-256: 40736a378314c7a5a5199bbec6d7904c16c3861752a82826fabccc57595d830d
+Android apksigner verified the release APK using APK Signature Scheme v2.
+ZIP alignment and APK archive integrity checks passed.
+The release APK is not debuggable and has no INTERNET permission.
+
+Android 11 emulator (API 30): APK installed and the main activity launched;
+the process remained running and the home screen was visible.
+Debug unit tests on Java 21: 22 tests, 0 failures, 0 skipped.
+No physical-device test was performed.
+
+A new release signing key was generated because no existing release keystore
+was present in the source repository. Retain the separately provided encrypted
+signing-key backup and its password for future updates of this installation.

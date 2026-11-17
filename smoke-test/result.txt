@@ -1,1 +1,0 @@
-Installed and launched com.aistudio.drones3d.kqvmrx on Android 11 (API 30); process 2348 remained running.
