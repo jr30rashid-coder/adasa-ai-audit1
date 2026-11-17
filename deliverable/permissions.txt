@@ -1,0 +1,3 @@
+package: com.aistudio.drones3d.kqvmrx
+permission: com.aistudio.drones3d.kqvmrx.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission: name='com.aistudio.drones3d.kqvmrx.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'

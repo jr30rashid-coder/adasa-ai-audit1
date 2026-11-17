@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Drones 3D Release, O=Drones 3D, C=QA
+Signer #1 certificate SHA-256 digest: 40736a378314c7a5a5199bbec6d7904c16c3861752a82826fabccc57595d830d
+Signer #1 certificate SHA-1 digest: 4a5ee5a5fad153fb4c11bbd2aa7940adf48b819b
+Signer #1 certificate MD5 digest: 4f6fe59eff454cbcecefbd06f0fc085d
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 79bbed520dd7cb37bbda4bef5cd6fa393baa444f9d897217cdb6e39a6a5d829b
+Signer #1 public key SHA-1 digest: d406d0a131243c14c994b622f321e0f7594852e1
+Signer #1 public key MD5 digest: 2f3b4ee2836e7f67fa5e65dcdb961026
