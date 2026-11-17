@@ -45,11 +45,19 @@ jobs:
             -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 30 \
             -dname 'CN=Android Debug,O=Android,C=US' \
             -storepass android -keypass android >/dev/null 2>&1
-          if ! gradle --no-daemon --stacktrace :app:testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/unit-tests.log"; then
-            echo '::error::Debug unit-test task failed; relevant output follows.'
-            grep -Ei '^e:|error:|^\* What went wrong:|^> |^Execution failed|^Caused by:|^FAILURE|could not|not found' "$RUNNER_TEMP/unit-tests.log" | tail -n 35 | while IFS= read -r line; do
-              echo "::error::$line"
-            done || true
+          if gradle --no-daemon --stacktrace --max-workers=2 -Dorg.gradle.jvmargs=-Xmx3g :app:testDebugUnitTest > "$RUNNER_TEMP/unit-tests.log" 2>&1; then
+            echo 'Gradle unit-test task completed.'
+          else
+            status=$?
+            echo "::error::Debug unit-test task exited with status $status."
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          lines = (Path(os.environ['RUNNER_TEMP']) / 'unit-tests.log').read_text(errors='replace').splitlines()
+          excerpt = '\n'.join(lines[-75:])
+          excerpt = excerpt.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Last unit-test log lines::' + excerpt)
+          PY
             exit 1
           fi
           python3 - <<'PY'
