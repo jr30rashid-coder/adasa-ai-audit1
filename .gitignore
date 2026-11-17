@@ -1,0 +1,9 @@
+# Local Android build tools and sensitive signing material
+/.cache/
+*.jks
+*.keystore
+*.p12
+*-private.pem
+
+# User-only encrypted signing backup; do not publish it to Git
+/deliverable/Drones3D-Signing-Backup.zip
