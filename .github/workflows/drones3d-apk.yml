@@ -1,0 +1,127 @@
+name: Build Drones 3D release APK
+
+on:
+  push:
+    branches:
+      - arena/27ed54dd-adasa-ai-audit1
+    paths:
+      - .github/workflows/drones3d-apk.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out build workflow
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check out the application at its requested revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: jr30rashid-coder/-
+          ref: 228ad273c4974c2257d77de1fb20078182ce52ed
+          path: drone-source
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android command-line tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0' 'build-tools;36.1.0'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        with:
+          gradle-version: '9.3.1'
+          cache-disabled: true
+      - name: Create a signing key, encrypt its backup, and build the release
+        shell: bash
+        working-directory: drone-source
+        run: |
+          set -euo pipefail
+          umask 077
+          private="$RUNNER_TEMP/drones3d-signing"
+          mkdir -p "$private" "$GITHUB_WORKSPACE/recovery"
+          export STORE_PASSWORD="$(openssl rand -hex 32)"
+          export KEY_PASSWORD="$STORE_PASSWORD"
+          export KEYSTORE_PATH="$private/drones3d-release.p12"
+          echo "::add-mask::$STORE_PASSWORD"
+          printf '%s\n' "$STORE_PASSWORD" > "$private/store-password.txt"
+          keytool -genkeypair -noprompt -storetype PKCS12 \
+            -keystore "$KEYSTORE_PATH" -alias upload \
+            -keyalg RSA -keysize 3072 -sigalg SHA256withRSA -validity 10000 \
+            -dname 'CN=Drones 3D Release, O=Drones 3D, C=QA' \
+            -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD
+          printf 'Keystore: drones3d-release.p12\nAlias: upload\nStore and key passwords are identical; see store-password.txt.\nKeep this private key safe: future updates must use the same signing key.\n' > "$private/README.txt"
+          tar -C "$private" -czf "$private/signing-backup.tar.gz" \
+            drones3d-release.p12 store-password.txt README.txt
+          openssl rand -hex 32 > "$private/encryption-password.txt"
+          openssl enc -aes-256-cbc -pbkdf2 -iter 250000 -md sha256 -salt \
+            -pass "file:$private/encryption-password.txt" \
+            -in "$private/signing-backup.tar.gz" \
+            -out "$GITHUB_WORKSPACE/recovery/signing-backup.tar.gz.enc"
+          openssl pkeyutl -encrypt -pubin \
+            -inkey "$GITHUB_WORKSPACE/.github/drones3d-recovery-public.pem" \
+            -in "$private/encryption-password.txt" \
+            -out "$GITHUB_WORKSPACE/recovery/encryption-password.enc" \
+            -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256
+          gradle --no-daemon --stacktrace :app:assembleRelease
+      - name: Verify the APK and write build details
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='drone-source/app/build/outputs/apk/release/app-release.apk'
+          tools="$ANDROID_HOME/build-tools/36.1.0"
+          mkdir -p deliverable
+          cp "$apk" deliverable/Drones3D-v1.0.0-rc1-release.apk
+          "$tools/apksigner" verify --verbose --print-certs "$apk" | tee deliverable/signature.txt
+          "$tools/zipalign" -c -v 4 "$apk" > deliverable/zipalign.txt
+          "$tools/aapt" dump badging "$apk" > deliverable/badging.txt
+          "$tools/aapt" dump permissions "$apk" > deliverable/permissions.txt
+          if grep -q '^application-debuggable' deliverable/badging.txt; then
+            echo 'The release APK must not be debuggable.' >&2
+            exit 1
+          fi
+          sha256sum deliverable/Drones3D-v1.0.0-rc1-release.apk | tee deliverable/sha256.txt
+          git -C drone-source rev-parse HEAD | tee deliverable/source-commit.txt
+      - name: Upload the verified APK
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: drones3d-release-apk
+          path: deliverable/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload the encrypted key backup
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: drones3d-encrypted-signing-backup
+          path: recovery/
+          if-no-files-found: warn
+          retention-days: 1
+      - name: Run unit tests
+        if: success()
+        continue-on-error: true
+        shell: bash
+        working-directory: drone-source
+        run: |
+          set -euo pipefail
+          export KEYSTORE_PATH="$RUNNER_TEMP/drones3d-signing/drones3d-release.p12"
+          export STORE_PASSWORD="$(cat "$RUNNER_TEMP/drones3d-signing/store-password.txt")"
+          export KEY_PASSWORD="$STORE_PASSWORD"
+          gradle --no-daemon --stacktrace :app:testReleaseUnitTest
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: drones3d-unit-test-results
+          path: drone-source/app/build/test-results/testReleaseUnitTest/
+          if-no-files-found: ignore
+          retention-days: 7
