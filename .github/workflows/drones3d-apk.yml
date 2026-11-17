@@ -8,7 +8,7 @@ on:
       - .github/workflows/drones3d-apk.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,10 +31,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android command-line tools
-        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
       - name: Install Android SDK packages
-        run: sdkmanager 'platforms;android-36.1' 'build-tools;36.0.0' 'build-tools;36.1.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$manager" ]; then
+            echo "::error::Android sdkmanager is unavailable at $manager"
+            exit 1
+          fi
+          "$manager" 'platforms;android-36.1' 'build-tools;36.0.0' 'build-tools;36.1.0' > "$RUNNER_TEMP/sdk-install.log" 2>&1 || {
+            tail -n 30 "$RUNNER_TEMP/sdk-install.log" | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          }
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
         with:
@@ -71,7 +80,10 @@ jobs:
             -in "$private/encryption-password.txt" \
             -out "$GITHUB_WORKSPACE/recovery/encryption-password.enc" \
             -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256
-          gradle --no-daemon --stacktrace :app:assembleRelease
+          if ! gradle --no-daemon --stacktrace :app:assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            tail -n 80 "$RUNNER_TEMP/build.log" | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
       - name: Verify the APK and write build details
         shell: bash
         run: |
@@ -106,6 +118,22 @@ jobs:
           path: recovery/
           if-no-files-found: warn
           retention-days: 1
+      - name: Make the APK and encrypted key backup available on this branch
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deliverable/ recovery/
+          git commit -m 'build: publish verified Drones 3D APK and encrypted key backup'
+          if ! git push origin "HEAD:$GITHUB_REF" 2>&1 | tee "$RUNNER_TEMP/push.log"; then
+            tail -n 20 "$RUNNER_TEMP/push.log" | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
       - name: Run unit tests
         if: success()
         continue-on-error: true
